@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PolyAModels</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        /* .curve {
+      fill: none;
+      stroke: steelblue;
+      stroke-width: 2px;
+    } */
+    </style>
+</head>
+<body>
+  <!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+      <a class="navbar-brand" href="#">PolyA Models</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ml-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="{% url 'index'  %}">Home</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{% url 'browser'  %}">Browser</a>
+          </li>
+          <!-- <li class="nav-item">
+            <a class="nav-link" href="#">Contact</a>
+          </li> -->
+        </ul>
+      </div>
+    </div>
+  </nav>
+  
+  <!-- Main Content -->
+  <div class="container mt-5">
+    <h1>PolyA Detector</h1>
+    <h2 id="loading"></h2>
+    <div class="progress">
+        <div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+      </div>
+    <button class="btn btn-outline-primary m-2 float-right" id="moveleft_button">&lt;</button>
+    <button class="btn btn-outline-primary m-2 float-right" id="zoomin_button">Zoom In</button>
+    <button class="btn btn-outline-primary m-2 float-right" id="zoomout_button">Zoom Out</button>
+    <button class="btn btn-outline-primary m-2 float-right" id="moveright_button">&gt;</button>
+    <div class="graph text-center"></div>
+    <!-- <form id="myForm" method="POST" action="{% url 'index' %}" onsubmit="return validateForm()"> -->
+        <form id="myForm">
+        {% csrf_token %}
+      <div class="row mb-3">
+        <div class="col-md-3">
+          <label for="chr" class="form-label">Chr</label>
+          <input type="text" class="form-control" id="chr" name="chr">
+        </div>
+        <div class="col-md-3">
+          <label for="start" class="form-label">Start</label>
+          <input type="number" class="form-control" id="start" name="start" onchange="startchanged()">
+        </div>
+        <div class="col-md-3">
+          <label for="end" class="form-label">End <span class="text-muted">(Read Only)</span></label>
+          <input type="number" class="form-control" id="end" name="end" readonly>
+        </div>
+        <div class="col-md-3 align-self-end mb-2">
+          <label for="minusStrand" class="form-check-label">Minus Strand</label>
+          <input type="checkbox" class="form-check-input " id="minusStrand" name="minusStrand">
+        </div>
+      </div>
+      <div class="mb-3">
+        <label for="sequence" class="form-label">Sequence</label>
+        <textarea class="form-control" id="sequence" name="sequence" rows="5"></textarea>
+      </div>
+      <div class="mb-3">
+        <label for="species" class="form-label">Species</label>
+        <select class="form-select" id="species" name="species">
+          <option value="human">Human</option>
+          <option value="mice">Mice</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary" id="submitBtn">Submit</button>
+      <!-- <button class="btn btn-secondary" id="resetForm">Reset</button> -->
+      <input type="reset" class="btn btn-secondary" onclick="resetProgressBar()">
+    </form>
+  </div>
+  
+  <!-- Footer -->
+  <footer class="footer text-center py-3">
+    &copy; 2023 My App. All rights reserved.
+  </footer>
+  
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script>
+    let formOutput; 
+     function validateForm() {
+    const chrField = document.getElementById("chr");
+    const startField = document.getElementById("start");
+    const endField = document.getElementById("end");
+    const sequenceField = document.getElementById("sequence");
+
+    if (!sequenceField.value && (!chrField.value || !startField.value || !endField.value)) {
+      alert("Either Sequence should be non-empty or Chr, Start, and End together should be non-empty.");
+      return false;
+    }
+
+    return true;
+  }
+  
+  const form = document.getElementById("myForm")
+  const submitBtn = document.getElementById("submitBtn")
+  const progressBar = document.querySelector('.progress-bar');
+
+  submitBtn.addEventListener('click', async () => {
+    event.preventDefault()
+    const sequenceField = document.getElementById("sequence");
+
+    if(validateForm()){
+        const formData = new FormData(form)
+        // document.getElementById("loading").innerHTML = 'Loading'
+        progressBar.style.width = '0%';
+        const response = await fetch("{% url 'process_form' %}", {
+            method: 'POST',
+            body: formData,
+            // onUploadProgress: (progressEvent) => {
+            //     const progress = (progressEvent.loaded / progressEvent.total) * 100;
+            //     progressBar.style.width = `${progress}%`;
+            //     console.log('Progress ', progresss)
+            // }
+        })
+        if(response.ok){
+            const data = await response.json()
+            console.log('response ', data)
+            // document.getElementById("loading").innerHTML = 'Loaded'
+            formOutput = data.predictions
+            if(formOutput.sequence != null && sequenceField.value != null ){
+                sequenceField.value = formOutput.sequence
+            }
+            let seq = formOutput.sequence.substring(95,145)
+            console.log('seq ', seq)
+            let xAxisValues = seq;
+            let yAxisValues = formOutput.clevage_prob_vector
+            updateCurve(xAxisValues, yAxisValues);
+            progressBar.style.width = '100%';
+
+
+        }
+    }
+    
+  })
+  
+
+  function startchanged(){
+    const startField = document.getElementById("start");
+    const endField = document.getElementById("end");
+    const startVal = startField.value
+    if(!isNaN(startVal)){
+    endField.value = (parseInt(startVal) + 1).toString()
+
+    }
+    console.log('end ')
+  }
+
+//   var xAxisValues = d3.range(-25, 25);
+  resetProgressBar = ()  => {
+    progressBar.style.width = '0%';
+  }
+
+//   function plotCurve(xAxisValues, yAxisValues) {
+      // Define the dimensions of the chart
+      
+
+      // Create a curve generator
+    //   var curve = d3.line()
+    //     .x(function (d, i) { return xScale(xAxisValues[i]); })
+    //     .y(function (d) { return yScale(d); });
+
+    //   // Plot the curve
+    //  var line =  svg.append("path")
+    //     // .datum(yAxisValues)
+    //     .attr("class", "curve")
+    //     // .attr("d", curve);
+
+    //   // Add x-axis
+    //   svg.append("g")
+    //     .attr("transform", "translate(0," + height + ")")
+    //     .call(d3.axisBottom(xScale));
+
+    //   // Add y-axis
+    //   svg.append("g")
+    //     .call(d3.axisLeft(yScale));
+    // }
+    
+
+    
+        
+
+
+    function updateCurve(xAxisValues, yAxisValues){
+        d3.selectAll("svg > *").remove();
+        d3.selectAll("svg").remove();
+
+        
+        var margin = { top: 20, right: 20, bottom: 30, left: 50 };
+      var width = 600 - margin.left - margin.right;
+      var height = 400 - margin.top - margin.bottom;
+
+      // Create an SVG element
+      var svg = d3.select(".graph")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+      // Create scales for x and y axes
+      var xScale = d3.scaleLinear()
+        .domain([-25,24])
+        .range([margin.left, width-margin.right]);
+     
+    
+      var yScale = d3.scaleLinear()
+        .domain([0, d3.max(yAxisValues)]).nice()
+        .range([height-margin.bottom, margin.top]);
+
+       
+        var curve = d3.line()
+        .x(function (d, i) { return xScale((i-25)); })
+        .y(function (d) { return yScale(d); });
+        
+
+      
+        // console.log('curve in f ', curve)
+    const line = svg.append("path")
+        .datum(yAxisValues)
+        .attr("class", "curve")
+        .attr("d", curve)
+        .attr("fill", "none")
+        .attr("stroke", "darkorange")
+        .attr("stroke-width", 3)
+        .attr("stroke-linejoin", "round")
+        .attr("stroke-linecap", "round")
+
+        let tickLabels = xAxisValues.split('')
+        xAxis_axis = d3.axisBottom().scale(xScale).tickValues(xAxisValues.split("").map((d,i) => (i-25))).tickFormat((d,i)=> tickLabels[i]);
+        xAxisVar_axis = d3.axisTop(xScale);  
+
+        const gX_b = svg.append("g")
+        .attr("transform", "translate(0," + (height - margin.bottom) + ")")
+        .call(xAxis_axis);
+
+        const gX_t = svg.append("g")
+        .attr("transform", "translate(0," + (margin.top - 10)  + ")")
+        .call(xAxisVar_axis)
+        .call(g => g.select('.domain').remove());
+
+        const gY = svg.append("g")
+        .attr("transform", "translate(" + margin.left + ",0)")
+        .call(d3.axisLeft(yScale))
+        .call(g => g.select(".domain").remove())
+         .call(g => g.select(".tick:last-of-type text").clone()
+                .attr("x", 4)
+                .attr("text-anchor", "start")
+                .attr("font-weight", "bold")
+                .text("pA Intensity"));
+
+        
+
+
+        d3.select('svg')
+            .selectAll(".tick text").filter(function(d, i) {return this.innerHTML === "A";})
+            .attr("color", "darkgreen").attr("font-weight", "bold");
+        d3.select('svg')
+            .selectAll(".tick text").filter(function(d, i) {return this.innerHTML === "C";})
+            .attr("color", "darkblue").attr("font-weight", "bold");
+        d3.select('svg')
+            .selectAll(".tick text").filter(function(d, i) {return this.innerHTML === "G";})
+            .attr("color", "gold").attr("font-weight", "bold");
+        d3.select('svg')
+            .selectAll(".tick text").filter(function(d, i) {return this.innerHTML === "T";})
+            .attr("color", "red").attr("font-weight", "bold");
+        d3.select('svg')
+        .selectAll(".tick text").filter(function(d, i) {return this.innerHTML === "U";})
+        .attr("color", "red").attr("font-weight", "bold");
+
+        d3.select('svg')
+            .selectAll(".tick text").attr("font-weight", "bold");
+
+    var zoom = d3.zoom()
+            .scaleExtent([1,1000])
+            .translateExtent([[margin.left, 0], [width - margin.right, height]])
+            .extent([[margin.left, 0], [width - margin.right, height]])
+            .on("zoom", zoomed);
+
+    function zoom_in() {
+          d3.select('svg').call(zoom.scaleBy, 1.5);
+        }
+
+        function zoom_out() {
+          d3.select('svg').call(zoom.scaleBy, 0.5);
+        }
+
+        function move_left() {
+          d3.select('svg').call(zoom.translateBy, 20);
+        }
+
+        function move_right() {
+          d3.select('svg').call(zoom.translateBy, -20);
+        }
+
+        d3.select('#zoomin_button').on('click', zoom_in);
+        d3.select('#zoomout_button').on('click', zoom_out);
+        d3.select('#moveleft_button').on('click', move_left);
+        d3.select('#moveright_button').on('click', move_right);
+
+    function zoomed({transform}) {
+        console.log('transform ', transform)
+
+        x = transform.rescaleX(xScale);
+        gX_b.call(xAxis_axis.scale(x))
+        gX_t.call(xAxisVar_axis.scale(x)).call(g => g.select(".domain").remove())
+
+
+       
+        var newLine = d3.line()
+        .x(function (d, i) { return x((i-25)); })
+        .y(function (d) { return yScale(d); });
+
+        d3.select('.curve').attr("d", newLine)
+
+
+    }
+    svg.call(zoom)
+            
+        
+    }
+
+    
+   
+
+    const xval = 'AGAGCCGTGAAGGCCCAGGGGACCTGCGTGTCTTGGCTCCACGCCAGATGTGTTATTATTTATGTCTCTGAGAATGTCTGGATCTCAGAGCCGAATTACAATAAAAACATCTTTAAACTTATTTCTACCTCATTTTGGGGTTGCCAGCTCACCTGATCATTTTTATGAACTGTCATGAACACTGATGACATTTTATGAGCCTTTTACATGGGACACTACAGAATACATTTGTCAGCGAGG';
+    const xaxisval = xval.substring(95,145)
+    console.log(xaxisval.split("").length)
+    // Example data
+    // var xAxisValues = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    // var xAxisValues = d3.range(-25, 26);
+    
+
+  var yAxisValues = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.015632376074790955, 0.06937781721353531, 0.3904140591621399, 0.3620043098926544, 0.132278174161911, 0.029009360820055008, 0.0012839401606470346, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];  
+    
+  
+
+
+    
+
+    // var xAxisValues = xaxisval.split("");
+    
+    // var yAxisValues = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.015632376074790955, 0.06937781721353531, 0.3904140591621399, 0.3620043098926544, 0.132278174161911, 0.029009360820055008, 0.0012839401606470346, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];  
+    // if(formOutput){
+    // yAxisValues = formOutput.clevage_prob_vector
+
+    // }
+    
+    updateCurve(xaxisval, yAxisValues);
+  </script>
+  
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PolyAModels</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        .curve {
+      fill: none;
+      stroke: steelblue;
+      stroke-width: 2px;
+    }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/igv@2.13.9/dist/igv.min.js"></script>
+
+</head>
+<body>
+  <!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+      <a class="navbar-brand" href="#">PolyA Models</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ml-auto">
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'index'  %}">Home</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'browser'  %}">Browser</a>
+              </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  
+  <!-- Main Content -->
+  <div class="container-fluid text-center">
+    <div class="row justify-content-center">
+      <main role="main" class="col-md-10  pt-3 px-4">
+        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+          <h1 class="h2">Gene Browser</h1>
+        </div>
+        <!-- <div class="col-md-10 p-4">
+            <form action="">
+                <div class="col-md-3">
+                    <label for="chr" class="form-label">Chr</label>
+                    <input type="text" class="form-control" id="chr" name="chr">
+                  </div>
+                  <div class="col-md-3">
+                    <label for="start" class="form-label">Start</label>
+                    <input type="number" class="form-control" id="start" name="start" onchange="startchanged()">
+                  </div>
+                  <div class="col-md-3">
+                    <label for="end" class="form-label">End <span class="text-muted">(Read Only)</span></label>
+                    <input type="number" class="form-control" id="end" name="end" readonly>
+                  </div>
+                <button type="submit" class="btn btn-primary" id="submitBtn">Submit</button>
+
+            </form>
+        </div> -->
+        <!-- <h3 class="d-flex justify-content-center pb-4">Gene Annotation</h3> -->
+        <div id="igv-div"></div>
+        
+       
+
+
+      </main>
+     
+    </div>
+    
+  </div>
+  
+  <!-- Footer -->
+  <footer class="footer text-center py-3">
+    &copy; 2023 My App. All rights reserved.
+  </footer>
+  
+
+  <script type="module">
+    var igvDiv = document.getElementById("igv-div");
+var options =
+{
+    genome: "hg38",
+    locus: "{{locus}}",
+    genomeList: "https://igv.org/genomes/genomes.json",
+    tracks: [
+        // {
+        //     "name": "HG00103",
+        //     "url": "https://s3.amazonaws.com/1000genomes/data/HG00103/alignment/HG00103.alt_bwamem_GRCh38DH.20150718.GBR.low_coverage.cram",
+        //     "indexURL": "https://s3.amazonaws.com/1000genomes/data/HG00103/alignment/HG00103.alt_bwamem_GRCh38DH.20150718.GBR.low_coverage.cram.crai",
+        //     "format": "cram",
+        //     "displayMode": "EXPANDED"
+        //     // "type": "annotation"
+        // },
+        {
+            "name": "putative_sites -",
+            "type": "annotation",
+            "displayMode": "expanded",
+            "height": "70",
+            // "format": "gff3",
+            // "visibilityWindow": 1000000,
+            "colorBy": "biotype",
+            "url": "https://polyamodels.s3.us-east-2.amazonaws.com/tracks/putative_sites.-.bed.gz",
+            "indexURL": "https://polyamodels.s3.us-east-2.amazonaws.com/tracks/putative_sites.-.bed.gz.tbi"
+        },
+        {
+            "name": "putative_sites +",
+            "type": "annotation",
+            "displayMode": "expanded",
+            "height": "70",
+            // "format": "gff3",
+            // "visibilityWindow": 1000000,
+            "colorBy": "biotype",
+            "url": "https://polyamodels.s3.us-east-2.amazonaws.com/tracks/putative_sites.%2B.bed.gz",
+            "indexURL": "https://polyamodels.s3.us-east-2.amazonaws.com/tracks/putative_sites.%2B.bed.gz.tbi"
+        },
+        // {
+        //     name: "putative_sites -",
+        //     type: "annotation",
+        //     format: "bed",
+        //     url: "https://polyamodels.s3.us-east-2.amazonaws.com/tracks/putative_sites.-.bed",
+        //     displayMode: "EXPANDED"
+        // },
+        // {
+        //     name: "putative_sites +",
+        //     type: "annotation",
+        //     format: "bed",
+        //     url: "https://polyamodels.s3.us-east-2.amazonaws.com/tracks/putative_sites.%2B.bed",
+        //     displayMode: "EXPANDED"
+        //  },
+        {
+            "name": "reads3fwd",
+            "type": "wig",
+            // "displayMode": "EXPANDED",
+            // "height": "70",
+            // "format": "gtf"
+            "url": "https://polyamodels.s3.us-east-2.amazonaws.com/tracks/reads3.fwd.bw",
+            // "indexURL": "https://tracksncorf.s3.us-east-2.amazonaws.com/sel.tog.transcripts.sorted.gtf.idx"
+        },
+        {
+            "name": "reads3rev",
+            "type": "wig",
+            // "displayMode": "EXPANDED",
+            // "height": "70",
+            // "format": "gtf"
+            "url": "https://polyamodels.s3.us-east-2.amazonaws.com/tracks/reads3.rev.bw",
+            // "indexURL": "https://tracksncorf.s3.us-east-2.amazonaws.com/sel.tog.transcripts.sorted.gtf.idx"
+        }
+    ]
+};
+
+var igvbrowser = igv.createBrowser(igvDiv, options)
+        .then(function (browser) {
+            console.log("Created IGV browser");
+          
+        console.log('igvbrowser ', browser);
+
+        })
+</script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  
+  
+</body>
+</html>
